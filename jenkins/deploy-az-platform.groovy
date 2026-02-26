@@ -41,7 +41,7 @@ properties([
                 ],
                 script: [
                     sandbox: false,
-                    script: "return ${getStorageAccounts().inspect()}"
+                    script: "return vars.getStorageAccounts.call(SELECTED_SUBSCRIPTION)"
                 ]
             ]
         ]
