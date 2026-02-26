@@ -21,7 +21,7 @@ properties([
                 fallbackScript: [sandbox: false, script: 'return ["Error"]'],
                 script: [
                     sandbox: false, 
-                    script: "return ${getSubscriptions().inspect()}"
+                    script: "return vars.getSubscriptions()"
                 ]
             ]
         ],
