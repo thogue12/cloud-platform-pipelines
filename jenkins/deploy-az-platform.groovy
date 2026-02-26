@@ -70,7 +70,7 @@ properties([
             description: 'Select your client subscription',
             script: [
                 $class: 'GroovyScript',
-                fallbackScript: [sandbox: false, script: 'return ["Error"]'],
+                fallbackScript: [sandbox: false, script: 'return ["UI Fallback triggered - Check Script Approval"]'],
                 script: [
                     sandbox: false, 
                     script: "return getSubscriptions()"
