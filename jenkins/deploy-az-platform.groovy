@@ -20,7 +20,7 @@ import groovy.json.JsonSlurper
 
 
 // Define this at the very top of your Jenkinsfile, before the 'properties' block
-def getStorageAccounts(selectedSub){ """
+def getStorageAccounts(selectedSub){ '''
 import groovy.json.JsonSlurper
     try {
         // 1. Check if the parent parameter is empty or null
@@ -56,7 +56,7 @@ import groovy.json.JsonSlurper
                          
     } catch (Exception e) {
         return ["GROOVY ERROR: " + e.getMessage().take(50)]
-    }"""
+    }'''
 }
 
 // Then in your properties block, you call it like this:
