@@ -2,7 +2,7 @@ import groovy.json.JsonSlurper
 @Library('shared-library') _
 
 // Define the logic as Closures at the top of the file
-def getSubscriptions(){'''
+def getSubscriptions(){"""
 import groovy.json.JsonSlurper
     try {
         def process = ['/usr/bin/az', 'account', 'list', '--query', '[].{name:name, id:id}', '--output', 'json'].execute()
@@ -10,17 +10,17 @@ import groovy.json.JsonSlurper
         process.waitForProcessOutput(out, err)
         if (process.exitValue() == 0) {
             def data = new JsonSlurper().parseText(out.toString())
-            return data.collect { "${it.name} (${it.id})" }
+            return data.collect { sub -> "${sub.name} (${sub.id})" }
         }
         return ["Error: CLI Failed"]
     } catch (e) { return ["Error: ${e.message}"] }
-    '''
+    """
 }
 
 
 
 // Define this at the very top of your Jenkinsfile, before the 'properties' block
-def getStorageAccounts(selectedSub){ '''
+def getStorageAccounts(selectedSub){ """
 import groovy.json.JsonSlurper
     try {
         // 1. Check if the parent parameter is empty or null
@@ -56,7 +56,7 @@ import groovy.json.JsonSlurper
                          
     } catch (Exception e) {
         return ["GROOVY ERROR: " + e.getMessage().take(50)]
-    }'''
+    """
 }
 
 // Then in your properties block, you call it like this:
