@@ -70,7 +70,7 @@ properties([
                 fallbackScript: [sandbox: false, script: 'return ["Error"]'],
                 script: [
                     sandbox: false, 
-                    script: getSubscriptions()
+                    script: "return getSubscriptions()"
                 ]
             ]
         ],
@@ -90,7 +90,7 @@ properties([
                 ],
                 script: [
                     sandbox: false,
-                    script: getStorageAccounts(selectedSub)
+                    script: "return getStorageAccounts(SELECTED_SUBSCRIPTION)"
                 ]
             ]
         ]
