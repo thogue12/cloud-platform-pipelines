@@ -141,7 +141,7 @@ pipeline {
             }
         }
 
-        stage('terraform') {
+        stage('terraform fmt') {
             steps { 
                 // Pull tfsec docker image
                 
