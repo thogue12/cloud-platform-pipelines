@@ -3,22 +3,31 @@ import groovy.json.JsonSlurper
 // Function 1: Subscriptions
 List getSubscriptions() {
     try {
-        // Use an array to pass environment variables if needed, 
-        // but often bash -c is enough to pick up the jenkins user's context
-        def command = "export AZURE_CONFIG_DIR=/var/lib/jenkins/.azure && /usr/bin/az account list --query '[].{name:name, id:id}' --output json"
-        def process = ["/bin/bash", "-c", command].execute()
+        // Use a safe temp directory for Azure CLI config if /var/lib/jenkins/.azure is restricted
+        def envCmd = "export AZURE_CONFIG_DIR=/tmp/.azure && /usr/bin/az account list --query '[].{name:name, id:id}' --output json"
+        def process = ["/bin/bash", "-c", envCmd].execute()
         
         def out = new StringBuilder(), err = new StringBuilder()
         process.waitForProcessOutput(out, err)
         
         if (process.exitValue() == 0) {
-            def data = new JsonSlurper().parseText(out.toString())
-            return data.collect { item -> "${item.name} (${item.id})" }
+            // Use the full path to JsonSlurper to avoid import issues in the UI scope
+            def jsonSlurper = new groovy.json.JsonSlurper()
+            def data = jsonSlurper.parseText(out.toString())
+            
+            if (data && data instanceof List) {
+                return data.collect { item -> "${item.name} (${item.id})" }
+            }
+            return ["No Subscriptions Found"]
         }
-        // If it fails, return the error so we can see it in the dropdown
-        return ["CLI Error: ${err.toString().take(40)}"]
-    } catch (e) { 
-        return ["Catch Error: ${e.message.take(40)}"] 
+        
+        // Return the actual CLI error to the dropdown so you can see it
+        def errorMsg = err.toString().trim()
+        return ["CLI Error: " + (errorMsg ? errorMsg.take(50) : "Exit Code ${process.exitValue()}")]
+        
+    } catch (Exception e) { 
+        // Catch any Groovy exceptions and show them in the UI
+        return ["Catch Error: " + e.getMessage().toString().take(50)] 
     }
 }
 
@@ -26,6 +35,9 @@ List getSubscriptions() {
 // Change 'selectedSub' to 'subInput' to avoid confusion with the UI variable
 List getStorageAccounts(subInput) { 
     try {
+        def jsonSlurper = new groovy.json.JsonSlurper()
+        def data = jsonSlurper.parseText(out.toString())
+        
         if (!subInput || subInput.toString().contains("Error")) {
             return ["Select a Subscription first..."]
         }
