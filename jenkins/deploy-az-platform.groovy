@@ -137,17 +137,11 @@ pipeline {
                             -backend-config="tenant_id=${AZURE_TENANT_ID}" \
                             -reconfigure
                     '''
-                    // pull security-scanner image from dockerhub
-                    sh '''
-                        docker run --rm -v ${WORKSPACE}:/apps \
-                        thogue12/security-scanner:v2 \
-                        bash -c "tfsec . && checkov -f tfplan.json && trivy conf tfplan.json"
-                    '''
                 }
             }
         }
 
-        stage('terraform fmt & security') {
+        stage('terraform') {
             steps { 
                 // Pull tfsec docker image
                 
@@ -157,7 +151,7 @@ pipeline {
             }
         }
 
-        stage('terraform plan') {
+        stage('terraform plan & security scan') {
             steps {
                 withCredentials([azureServicePrincipal('AZ_CREDS')]) {
                     sh '''
@@ -168,6 +162,12 @@ pipeline {
                         terraform plan -out=tfplan
                         terraform show -json tfplan > tfplan.json
                     '''
+                        // pull security-scanner image from dockerhub
+                    sh '''
+                        docker run --rm -v ${WORKSPACE}:/apps \
+                        thogue12/security-scanner:v2 \
+                        bash -c "tfsec . && checkov -f tfplan.json && trivy conf tfplan.json"
+                      '''
                 }
             }
         }
