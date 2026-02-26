@@ -88,6 +88,12 @@ pipeline {
                             -backend-config="tenant_id=${AZURE_TENANT_ID}" \
                             -reconfigure
                     '''
+                    // pull security-scanner image from dockerhub
+                    sh '''
+                        docker run --rm -v ${WORKSPACE}:/apps \
+                        thogue12/security-scanner:v2 \
+                        bash -c "tfsec . && checkov -f tfplan.json && trivy conf tfplan.json"
+                    '''
                 }
             }
         }
@@ -95,10 +101,10 @@ pipeline {
         stage('terraform fmt & security') {
             steps { 
                 // Pull tfsec docker image
-                docker,image('aquasec/tfsec:latest').inside('--entrypoint=""'){
-                    sh 'terraform fmt || true'
-                    sh 'tfsec .'  
-                }   
+                
+                    sh 'terraform fmt'
+                    
+                  
             }
         }
 
@@ -113,15 +119,6 @@ pipeline {
                         terraform plan -out=tfplan
                         terraform show -json tfplan > tfplan.json
                     '''
-                }
-            }
-        }
-
-        stage('Trivy scan'){
-            steps{
-                // Pull trivy docker image
-                docker.image('auquasec/trivy:latest').inside('--entrypoint=""'){
-                    sh 'trivy config . --severity HIGH, CRITICAL --format json --output trivy-results.json'
                 }
             }
         }
