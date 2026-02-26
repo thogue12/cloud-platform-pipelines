@@ -3,19 +3,22 @@ import groovy.json.JsonSlurper
 // Function 1: Subscriptions
 List getSubscriptions() {
     try {
-        def process = ['/usr/bin/az', 'account', 'list', '--query', '[].{name:name, id:id}', '--output', 'json'].execute()
-        // Wait for it to finish and capture output
+        // Use an array to pass environment variables if needed, 
+        // but often bash -c is enough to pick up the jenkins user's context
+        def command = "export AZURE_CONFIG_DIR=/var/lib/jenkins/.azure && /usr/bin/az account list --query '[].{name:name, id:id}' --output json"
+        def process = ["/bin/bash", "-c", command].execute()
+        
         def out = new StringBuilder(), err = new StringBuilder()
         process.waitForProcessOutput(out, err)
         
-        // We check exitValue() - ensure this is approved in Script Approval!
         if (process.exitValue() == 0) {
             def data = new JsonSlurper().parseText(out.toString())
             return data.collect { item -> "${item.name} (${item.id})" }
         }
-        return ["Error: CLI Status ${process.exitValue()}"]
+        // If it fails, return the error so we can see it in the dropdown
+        return ["CLI Error: ${err.toString().take(40)}"]
     } catch (e) { 
-        return ["Error: ${e.message}"] 
+        return ["Catch Error: ${e.message.take(40)}"] 
     }
 }
 
