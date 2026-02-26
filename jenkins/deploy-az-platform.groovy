@@ -1,65 +1,51 @@
 import groovy.json.JsonSlurper
 @Library('shared-library') _
-
-// Define the logic as Closures at the top of the file
-List getSubscriptions(){ 
-
+// Function 1: Subscriptions
+List getSubscriptions() {
     try {
         def process = ['/usr/bin/az', 'account', 'list', '--query', '[].{name:name, id:id}', '--output', 'json'].execute()
+        // Wait for it to finish and capture output
         def out = new StringBuilder(), err = new StringBuilder()
         process.waitForProcessOutput(out, err)
+        
+        // We check exitValue() - ensure this is approved in Script Approval!
         if (process.exitValue() == 0) {
             def data = new JsonSlurper().parseText(out.toString())
-            return data.collect { sub -> "${sub.name} (${sub.id})" }
+            return data.collect { item -> "${item.name} (${item.id})" }
         }
-        return ["Error: CLI Failed"]
-    } catch (e) { return ["Error: ${e.message}"] }
-    
+        return ["Error: CLI Status ${process.exitValue()}"]
+    } catch (e) { 
+        return ["Error: ${e.message}"] 
+    }
 }
 
-
-
-// Define this at the very top of your Jenkinsfile, before the 'properties' block
-List getStorageAccounts(String selectedSub){ 
-
+// Function 2: Storage Accounts
+// Change 'selectedSub' to 'subInput' to avoid confusion with the UI variable
+List getStorageAccounts(subInput) { 
     try {
-        // 1. Check if the parent parameter is empty or null
-        if (selectedSub == null || selectedSub.trim().isEmpty() || selectedSub.contains("Error")) {
+        if (!subInput || subInput.toString().contains("Error")) {
             return ["Select a Subscription first..."]
         }
 
-        // 2. Extract Sub ID from "Name (ID)" format
-        def subId = selectedSub.contains("(") ? 
-                    selectedSub.substring(selectedSub.lastIndexOf("(") + 1, selectedSub.lastIndexOf(")")) : 
-                    selectedSub
+        def subId = subInput.toString().contains("(") ? 
+                    subInput.substring(subInput.lastIndexOf("(") + 1, subInput.lastIndexOf(")")) : 
+                    subInput
 
-        // 3. Execute Command
-        // We use absolute paths to /usr/bin/az to ensure the Jenkins Controller finds it
-        def command = "/usr/bin/az account set --subscription ${subId} && /usr/bin/az storage account list --query '[].name' --output json 2>&1"
+        def command = "/usr/bin/az storage account list --subscription ${subId} --query '[].name' --output json"
         def proc = ["/bin/bash", "-c", command].execute()
         
-        def output = proc.text.trim()
-        proc.waitFor()
+        def out = new StringBuilder(), err = new StringBuilder()
+        proc.waitForProcessOutput(out, err)
 
-        // 4. Handle CLI Errors (Exit code != 0)
-        if (proc.exitValue() != 0) {
-            return ["AZ CLI Error: " + output.take(50)] 
+        if (proc.exitValue() == 0) {
+            return new JsonSlurper().parseText(out.toString())
         }
-
-        // 5. Handle Empty Results
-        if (!output || output == "[]") {
-            return ["No storage accounts found in this sub"]
-        }
-
-        // 6. Parse JSON and Return List
-        return new JsonSlurper().parseText(output)
+        return ["No storage accounts found"]
                          
     } catch (Exception e) {
-        return ["GROOVY ERROR: " + e.getMessage().take(50)]
+        return ["GROOVY ERROR: " + e.getMessage()]
     }
-    
 }
-
 // Then in your properties block, you call it like this:
 // script: "return getStorageAccounts(SELECTED_SUBSCRIPTION)"
 
