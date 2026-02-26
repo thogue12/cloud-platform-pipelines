@@ -1,6 +1,67 @@
 import groovy.json.JsonSlurper
 @Library('shared-library') _
 
+// Define the logic as Closures at the top of the file
+def getSubscriptions{'''
+import groovy.json.JsonSlurper
+    try {
+        def process = ['/usr/bin/az', 'account', 'list', '--query', '[].{name:name, id:id}', '--output', 'json'].execute()
+        def out = new StringBuilder(), err = new StringBuilder()
+        process.waitForProcessOutput(out, err)
+        if (process.exitValue() == 0) {
+            def data = new JsonSlurper().parseText(out.toString())
+            return data.collect { "${it.name} (${it.id})" }
+        }
+        return ["Error: CLI Failed"]
+    } catch (e) { return ["Error: ${e.message}"] }'''
+}
+
+
+
+// Define this at the very top of your Jenkinsfile, before the 'properties' block
+def getStorageAccounts(selectedSub){ '''
+import groovy.json.JsonSlurper
+    try {
+        // 1. Check if the parent parameter is empty or null
+        if (selectedSub == null || selectedSub.trim().isEmpty() || selectedSub.contains("Error")) {
+            return ["Select a Subscription first..."]
+        }
+
+        // 2. Extract Sub ID from "Name (ID)" format
+        def subId = selectedSub.contains("(") ? 
+                    selectedSub.substring(selectedSub.lastIndexOf("(") + 1, selectedSub.lastIndexOf(")")) : 
+                    selectedSub
+
+        // 3. Execute Command
+        // We use absolute paths to /usr/bin/az to ensure the Jenkins Controller finds it
+        def command = "/usr/bin/az account set --subscription ${subId} && /usr/bin/az storage account list --query '[].name' --output json 2>&1"
+        def proc = ["/bin/bash", "-c", command].execute()
+        
+        def output = proc.text.trim()
+        proc.waitFor()
+
+        // 4. Handle CLI Errors (Exit code != 0)
+        if (proc.exitValue() != 0) {
+            return ["AZ CLI Error: " + output.take(50)] 
+        }
+
+        // 5. Handle Empty Results
+        if (!output || output == "[]") {
+            return ["No storage accounts found in this sub"]
+        }
+
+        // 6. Parse JSON and Return List
+        return new JsonSlurper().parseText(output)
+                         
+    } catch (Exception e) {
+        return ["GROOVY ERROR: " + e.getMessage().take(50)]
+    }'''
+}
+
+// Then in your properties block, you call it like this:
+// script: "return getStorageAccounts(SELECTED_SUBSCRIPTION)"
+
+
 properties([
     parameters([
         string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Target environment'),
@@ -21,7 +82,7 @@ properties([
                 fallbackScript: [sandbox: false, script: 'return ["Error"]'],
                 script: [
                     sandbox: false, 
-                    script: "return vars.getSubscriptions()"
+                    script: getSubscriptions()
                 ]
             ]
         ],
@@ -41,7 +102,7 @@ properties([
                 ],
                 script: [
                     sandbox: false,
-                    script: "return vars.getStorageAccounts.call(SELECTED_SUBSCRIPTION)"
+                    script: getStorageAccounts(selectedSub)
                 ]
             ]
         ]
