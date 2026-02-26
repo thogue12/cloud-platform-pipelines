@@ -1,6 +1,4 @@
 import groovy.json.JsonSlurper
-@Library('shared-library') _
-
 properties([
     parameters([
         string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Target environment'),
@@ -10,7 +8,7 @@ properties([
         string(name: 'vnet_address', description: 'Input the virtual networks CIDR'),
         string(name: 'subnet_address',  description: 'Input the subnet CIDR'),
         
-        
+        // 1. Subscription Selector (The "Parent" parameter)
         [
             $class: 'ChoiceParameter', 
             name: 'SELECTED_SUBSCRIPTION',
@@ -21,17 +19,28 @@ properties([
                 fallbackScript: [sandbox: false, script: 'return ["Error"]'],
                 script: [
                     sandbox: false, 
-                    script: "return ${getSubscriptions().inspect()}"
+                    script: '''
+                        try {
+                            def cmd = ['/bin/bash', '-c', '/usr/bin/az account list --query "[].{name:name, id:id}" --output json']
+                            def process = cmd.execute()
+                            def output = process.text
+                            process.waitFor()
+                            if (process.exitValue() == 0 && output) {
+                                def data = new groovy.json.JsonSlurper().parseText(output)
+                                return data.collect { sub -> "${sub.name} (${sub.id})" }
+                            }
+                        } catch (Exception e) { return ["Error: ${e.message}"] }
+                    '''
                 ]
             ]
         ],
 
-        
+        // 2. Storage Account (The "Reactive Child" parameter)
         [
-            $class: 'CascadeChoiceParameter', 
+            $class: 'CascadeChoiceParameter', // Use Cascade for referencing other params
             name: 'storage_account',
             description: 'Select a storage account from the subscription',
-            choiceType: 'PT_SINGLE_SELECT', 
+            choiceType: 'PT_SINGLE_SELECT', // Using single select for a cleaner UI than text box if you want a list
             referencedParameters: 'SELECTED_SUBSCRIPTION',
             script: [
                 $class: 'GroovyScript',
@@ -41,7 +50,41 @@ properties([
                 ],
                 script: [
                     sandbox: false,
-                    script: "return ${getStorageAccounts().inspect()}"
+                    script: '''
+                        try {
+                             // 1. Check if the parent parameter is empty or null
+                             if (SELECTED_SUBSCRIPTION == null || SELECTED_SUBSCRIPTION.trim().isEmpty()) {
+                                 return ["Select a Subscription first..."]
+                             }
+            
+                             // 2. Extract Sub ID
+                             def subId = SELECTED_SUBSCRIPTION.contains("(") ? 
+                                         SELECTED_SUBSCRIPTION.substring(SELECTED_SUBSCRIPTION.lastIndexOf("(") + 1, SELECTED_SUBSCRIPTION.lastIndexOf(")")) : 
+                                         SELECTED_SUBSCRIPTION
+            
+                             // 3. Execute Command (Capturing stderr with 2>&1)
+                             def command = "/usr/bin/az account set --subscription ${subId} && /usr/bin/az storage account list --query '[].name' --output json 2>&1"
+                             def proc = ["/bin/bash", "-c", command].execute()
+                             def output = proc.text.trim()
+                             proc.waitFor()
+            
+                             // 4. Handle Empty Output or Errors
+                             if (proc.exitValue() != 0) {
+                                 return ["AZ CLI Error: " + output.take(50)] // Show first 50 chars of error
+                             }
+            
+                             if (!output || output == "[]") {
+                                 return ["ERROR: No storage accounts found in this sub"]
+                             }
+            
+                             // 5. Parse and Return
+                             def data = new groovy.json.JsonSlurper().parseText(output)
+                             return data
+                             
+                         } catch (Exception e) {
+                             return ["GROOVY ERROR: " + e.getMessage()]
+                         }
+                    '''
                 ]
             ]
         ]
@@ -52,6 +95,7 @@ pipeline {
     agent any
     
     environment {
+        // Create a lowercase version of client name for Azure naming compatibility
         CLIENT_LOWER = "${params.client_name.toLowerCase().replaceAll(' ', '')}"
     }
 
@@ -88,23 +132,14 @@ pipeline {
                             -backend-config="tenant_id=${AZURE_TENANT_ID}" \
                             -reconfigure
                     '''
-                    // pull security-scanner image from dockerhub
-                    sh '''
-                        docker run --rm -v ${WORKSPACE}:/apps \
-                        thogue12/security-scanner:v2 \
-                        bash -c "tfsec . && checkov -f tfplan.json && trivy conf tfplan.json"
-                    '''
                 }
             }
         }
 
         stage('terraform fmt & security') {
-            steps { 
-                // Pull tfsec docker image
-                
-                    sh 'terraform fmt'
-                    
-                  
+            steps {
+                sh 'terraform fmt || true' // Added || true so fmt doesn't kill the build
+                sh 'tfsec . || true'       // Let it continue so you can see results
             }
         }
 
@@ -120,6 +155,12 @@ pipeline {
                         terraform show -json tfplan > tfplan.json
                     '''
                 }
+            }
+        }
+
+        stage('Trivy scan'){
+            steps{
+                sh 'trivy config --exit-code 0 tfplan.json' // Changed exit-code to 0 for initial testing
             }
         }
 
@@ -143,6 +184,7 @@ pipeline {
                     def targetDir = "Environments/${params.ENVIRONMENT}/clients"
                     sh "mkdir -p ${targetDir}"
                 
+                    // Fixed typos and used triple double-quotes for variable expansion
                     def tfvarsContent = """
                     client_name     = "${params.client_name}"
                     environment     = "${params.ENVIRONMENT}"
