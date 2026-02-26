@@ -2,7 +2,7 @@ import groovy.json.JsonSlurper
 @Library('shared-library') _
 
 // Define the logic as Closures at the top of the file
-def getSubscriptions{"""
+def getSubscriptions(){"""
 import groovy.json.JsonSlurper
     try {
         def process = ['/usr/bin/az', 'account', 'list', '--query', '[].{name:name, id:id}', '--output', 'json'].execute()
@@ -13,7 +13,8 @@ import groovy.json.JsonSlurper
             return data.collect { "${it.name} (${it.id})" }
         }
         return ["Error: CLI Failed"]
-    } catch (e) { return ["Error: ${e.message}"] }"""
+    } catch (e) { return ["Error: ${e.message}"] }
+    """
 }
 
 
