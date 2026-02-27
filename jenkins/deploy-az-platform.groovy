@@ -167,36 +167,40 @@ pipeline {
             }
         }
 
-        stage('terraform plan & security scan') {
+       stage('terraform plan & security scan') {
             steps {
+                // 1. Pull the repo into a dedicated folder
                 dir('pipeline-repo') {
                     git branch: 'main', 
                         url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
                 }
-                withEnv(["TF_VAR_client_name=${params.client_name}",
-                        "TF_VAR_environment=${params.ENVIRONMENT}",
-                        "TF_VAR_project_name=${params.project_name}",
-                        "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
-                        "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
-                        "TF_VAR_location=${params.location}",
-                        "TF_VAR_azure_subscription_id=${env.SUB_ID}"
+        
+                // 2. Build the Docker image using the path RELATIVE to the workspace root
+                // We use the full path from the root to be safe
+                sh 'docker build -t security-scanner:local ./pipeline-repo/Docker-Images/security-scanner'
+        
+                withEnv([
+                    "TF_VAR_client_name=${params.client_name}",
+                    "TF_VAR_environment=${params.ENVIRONMENT}",
+                    "TF_VAR_project_name=${params.project_name}",
+                    "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
+                    "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
+                    "TF_VAR_location=${params.location}",
+                    "TF_VAR_azure_subscription_id=${env.SUB_ID}"
                 ]) { 
                     withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-        
+                        // 3. Generate the Plan and JSON
                         sh """
                             export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
                             export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
                             export ARM_TENANT_ID="\$AZURE_TENANT_ID"
                             export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
-
+        
                             ${TF_PATH} plan -out=tfplan
                             ${TF_PATH} show -json tfplan > tfplan.json
                         """
-
-                        dir('pipeline-repo/Docker-Images/security-scanner') {
-                            sh 'docker build -t security-scanner:local .'
-                        }
-
+        
+                        // 4. Run the Scan (Running in the root where tfplan.json is)
                         sh """
                             echo "--- Starting Security Scan ---"
                             docker run --rm \
@@ -207,8 +211,8 @@ pipeline {
                         """
                     } 
                 } 
-    }
-}
+            }
+        }
 
         // stage('terraform apply') {
         //     steps {
