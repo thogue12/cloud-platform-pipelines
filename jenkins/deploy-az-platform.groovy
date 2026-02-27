@@ -91,7 +91,6 @@ pipeline {
     stages {
         stage('Checkout Infrastructure repo') {
             steps {
-                cleanWs() 
                 git branch: 'main', 
                     url: 'https://github.com/thogue12/cloud-infrastructure.git'
             }
@@ -170,6 +169,10 @@ pipeline {
 
         stage('terraform plan & security scan') {
             steps {
+                dir('pipeline-repo') {
+                    git branch: 'main', 
+                        url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
+        }
                 withEnv(["TF_VAR_client_name=${params.client_name}",
                         "TF_VAR_environment=${params.ENVIRONMENT}",
                         "TF_VAR_project_name=${params.project_name}",
@@ -192,7 +195,7 @@ pipeline {
                            
                         '''
 
-                        dir('Docker-Images/security-scanner') {
+                        dir('pipeline-repo/Docker-Images/security-scanner') {
                             sh 'docker build -t security-scanner:local .'
                         }
 
