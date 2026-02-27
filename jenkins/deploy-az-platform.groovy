@@ -84,12 +84,10 @@ pipeline {
     agent any
     
     environment {
-        
         CLIENT_LOWER = "${params.client_name.toLowerCase().replaceAll(' ', '')}"
     }
 
-    stages 
-        
+    stages {
         stage('Checkout Infrastructure repo') {
             steps {
                 cleanWs() 
@@ -213,9 +211,9 @@ pipeline {
                             export ARM_SUBSCRIPTION_ID="${SUB_ID}"
                             terraform apply -auto-approve tfplan
                         '''
-                    } /
-                } /
+                    }
+                }
             }
         }
     } 
-} 
+}
