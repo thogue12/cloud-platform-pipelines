@@ -124,23 +124,19 @@ pipeline {
         }
         stage('Docker Diagnostic Test') {
             steps {
+                // 1. Check version and source
                 sh '''
                     echo "--- Checking Docker Version and Source ---"
                     which docker
                     docker version
-                    
-                    echo "--- Testing Image Pull ---"
-                    docker pull thogue12/security-scanner:v2
-                    
-                    echo "--- Testing Simple Container Run (No Volumes) ---"
-                    docker run --rm thogue12/security-scanner:v2 echo "Docker is working!"
-                    
-                    echo "--- Testing Volume Mount (The Snap Trap) ---"
-                    # This is likely where it will fail if it's a Snap
-                    touch snap_test.txt
-                    docker run --rm -v $(pwd):/apps thogue12/security-scanner:v2 ls /apps/snap_test.txt
                 '''
-    }   
+
+                dir('Docker-Images/security-scanner') {
+                    sh 'docker build -t security-scanner:local .'
+                }
+                sh 'docker images | grep security-scanner'
+    }
+}   
 }
 
         stage('terraform init') {
