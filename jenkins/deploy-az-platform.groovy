@@ -84,6 +84,7 @@ pipeline {
     agent any
     
     environment {
+        TF_PATH = '/usr/bin/terraform'
         CLIENT_LOWER = "${params.client_name.toLowerCase().replaceAll(' ', '')}"
     }
 
@@ -118,7 +119,7 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZ_CREDS')]) {
                     sh '''#!/bin/bash
-                        /usr/local/bin/terraform init -reconfigure \
+                            ${TF_PATH} init -reconfigure \
                             -backend-config="storage_account_name=${storage_account}" \
                             -backend-config="container_name=${CLIENT_LOWER}" \
                             -backend-config="key=${CLIENT_LOWER}-${ENVIRONMENT}.terraform.tfstate" \
@@ -169,12 +170,13 @@ pipeline {
                 ]) { 
                     withCredentials([azureServicePrincipal('AZ_CREDS')]) {
                         sh '''
+        
                             export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
                             export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
                             export ARM_TENANT_ID="${AZURE_TENANT_ID}"
                             export ARM_SUBSCRIPTION_ID="${SUB_ID}"
 
-                            terraform plan -out=tfplan
+                            ${TF_PATH} terraform plan -out=tfplan
                             terraform show -json tfplan > tfplan.json
                         '''
 
@@ -208,7 +210,7 @@ pipeline {
                             export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
                             export ARM_TENANT_ID="${AZURE_TENANT_ID}"
                             export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-                            terraform apply -auto-approve tfplan
+                            ${TF_PATH} terraform apply -auto-approve tfplan
                         '''
                     }
                 }
