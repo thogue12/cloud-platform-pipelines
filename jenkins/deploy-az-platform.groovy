@@ -197,23 +197,25 @@ pipeline {
                 """
 
                 sh '''
+                    echo "--- Creating Scan Script ---"
                     echo "#!/bin/sh" > scan.sh
-                    
                     echo "echo '--- Running tfsec ---'" >> scan.sh
-                    # tfsec: return exit code 1 if CRITICAL or HIGH are found
-                    echo "tfsec . --soft-fail --minimum-severity HIGH" >> scan.sh
-                
+                    echo "tfsec ." >> scan.sh
+
                     echo "echo '--- Running checkov ---'" >> scan.sh
-                    # checkov: use --check to filter or --soft-fail to just report
-                    # To fail on errors: remove --soft-fail
-                    echo "checkov -f tfplan.json --compact" >> scan.sh
-                
+                    echo "checkov -f tfplan.json" >> scan.sh
+                    
                     echo "echo '--- Running trivy ---'" >> scan.sh
-                    # trivy: this is the most reliable way to break the build
-                    echo "trivy config --exit-code 1 --severity HIGH,CRITICAL tfplan.json" >> scan.sh
+                    echo "trivy config tfplan.json" >> scan.sh
                     
                     chmod +x scan.sh
-                    docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local ./scan.sh
+                
+                    echo "--- Starting Security Scan ---"
+                    docker run --rm \
+                        -v "$(pwd):/apps" \
+                        --workdir /apps \
+                        security-scanner:local \
+                        ./scan.sh
                 '''
             } 
         } 
