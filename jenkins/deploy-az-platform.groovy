@@ -118,7 +118,7 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZ_CREDS')]) {
                     sh '''#!/bin/bash
-                        terraform init -reconfigure \
+                        /usr/local/bin/terraform init -reconfigure \
                             -backend-config="storage_account_name=${storage_account}" \
                             -backend-config="container_name=${CLIENT_LOWER}" \
                             -backend-config="key=${CLIENT_LOWER}-${ENVIRONMENT}.terraform.tfstate" \
