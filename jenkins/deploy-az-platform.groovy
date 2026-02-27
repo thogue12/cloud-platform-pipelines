@@ -172,7 +172,7 @@ pipeline {
                 dir('pipeline-repo') {
                     git branch: 'main', 
                         url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
-        }
+                }
                 withEnv(["TF_VAR_client_name=${params.client_name}",
                         "TF_VAR_environment=${params.ENVIRONMENT}",
                         "TF_VAR_project_name=${params.project_name}",
@@ -183,7 +183,7 @@ pipeline {
 
                 ]) { 
                     withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                        sh '''
+                        sh """
         
                             export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
                             export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
@@ -193,7 +193,7 @@ pipeline {
                            ${TF_PATH} plan -out=tfplan
                            ${TF_PATH} show -json tfplan > tfplan.json
                            
-                        '''
+                        """
 
                         dir('pipeline-repo/Docker-Images/security-scanner') {
                             sh 'docker build -t security-scanner:local .'
