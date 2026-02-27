@@ -197,15 +197,14 @@ pipeline {
                             sh 'docker build -t security-scanner:local .'
                         }
 
-                        // Added --workdir and /bin/sh to solve the binary execution error
-                        sh '''
+                        sh """
                             echo "--- Starting Security Scan ---"
                             docker run --rm \
-                            -v "$(pwd):/apps" \
+                            -v "\$(pwd):/apps" \
                             --workdir /apps \
                             security-scanner:local \
-                            /bin/sh -c "tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
-                        '''
+                            bash -c "tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
+                        """
                     } 
                 } 
     }
