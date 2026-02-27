@@ -124,7 +124,7 @@ pipeline {
         }
         stage('Docker Diagnostic Test') {
             steps {
-                // 1. Check version and source
+               
                 sh '''
                     echo "--- Checking Docker Version and Source ---"
                     which docker
@@ -135,9 +135,8 @@ pipeline {
                     sh 'docker build -t security-scanner:local .'
                 }
                 sh 'docker images | grep security-scanner'
-    }
-}   
-}
+    } 
+} 
 
         stage('terraform init') {
             steps {
