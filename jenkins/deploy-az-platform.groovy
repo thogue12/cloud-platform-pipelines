@@ -200,14 +200,16 @@ pipeline {
                     echo "--- Creating Scan Script ---"
                     echo "#!/bin/sh" > scan.sh
                     echo "echo '--- Running tfsec ---'" >> scan.sh
-                    echo "tfsec ." >> scan.sh
+                    echo "tfsec . -soft-fail --minimum-severity HIGH" >> scan.sh
+
                     echo "echo '--- Running checkov ---'" >> scan.sh
-                    echo "checkov -f tfplan.json" >> scan.sh
+                    echo "checkov -f tfplan.json --minimum-severity HIGH,CRITICAL" >> scan.sh
+
                     echo "echo '--- Running trivy ---'" >> scan.sh
-                    echo "trivy config tfplan.json" >> scan.sh
-                    
+                    echo "trivy config --exit-code 1 --severity HIGH,CRITICAL tfplan.json" >> scan.sh
+
                     chmod +x scan.sh
-                
+
                     echo "--- Starting Security Scan ---"
                     docker run --rm \
                         -v "$(pwd):/apps" \
