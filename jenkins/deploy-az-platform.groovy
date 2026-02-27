@@ -1,69 +1,6 @@
 import groovy.json.JsonSlurper
 @Library('shared-library') _
 
-// // Function 1: Subscriptions
-// List getSubscriptions() {
-//     try {
-//         // Use a safe temp directory for Azure CLI config if /var/lib/jenkins/.azure is restricted
-//         def envCmd = "export AZURE_CONFIG_DIR=/tmp/.azure && /usr/bin/az account list --query '[].{name:name, id:id}' --output json"
-//         def process = ["/bin/bash", "-c", envCmd].execute()
-        
-//         def out = new StringBuilder(), err = new StringBuilder()
-//         process.waitForProcessOutput(out, err)
-        
-//         if (process.exitValue() == 0) {
-//             // Use the full path to JsonSlurper to avoid import issues in the UI scope
-//             def jsonSlurper = new groovy.json.JsonSlurper()
-//             def data = jsonSlurper.parseText(out.toString())
-            
-//             if (data && data instanceof List) {
-//                 return data.collect { item -> "${item.name} (${item.id})" }
-//             }
-//             return ["No Subscriptions Found"]
-//         }
-        
-//         // Return the actual CLI error to the dropdown so you can see it
-//         def errorMsg = err.toString().trim()
-//         return ["CLI Error: " + (errorMsg ? errorMsg.take(50) : "Exit Code ${process.exitValue()}")]
-        
-//     } catch (Exception e) { 
-//         // Catch any Groovy exceptions and show them in the UI
-//         return ["Catch Error: " + e.getMessage().toString().take(50)] 
-//     }
-// }
-
-// // Function 2: Storage Accounts
-// // Change 'selectedSub' to 'subInput' to avoid confusion with the UI variable
-// List getStorageAccounts(subInput) { 
-//     try {
-//         def jsonSlurper = new groovy.json.JsonSlurper()
-//         def data = jsonSlurper.parseText(out.toString())
-
-//         if (!subInput || subInput.toString().contains("Error")) {
-//             return ["Select a Subscription first..."]
-//         }
-
-//         def subId = subInput.toString().contains("(") ? 
-//                     subInput.substring(subInput.lastIndexOf("(") + 1, subInput.lastIndexOf(")")) : 
-//                     subInput
-
-//         def command = "/usr/bin/az storage account list --subscription ${subId} --query '[].name' --output json"
-//         def proc = ["/bin/bash", "-c", command].execute()
-        
-//         def out = new StringBuilder(), err = new StringBuilder()
-//         proc.waitForProcessOutput(out, err)
-
-//         if (proc.exitValue() == 0) {
-//             return new JsonSlurper().parseText(out.toString())
-//         }
-//         return ["No storage accounts found"]
-                         
-//     } catch (Exception e) {
-//         return ["GROOVY ERROR: " + e.getMessage()]
-//     }
-// }
-// Then in your properties block, you call it like this:
-// script: "return getStorageAccounts(SELECTED_SUBSCRIPTION)"
 
 
 properties([
@@ -180,6 +117,11 @@ pipeline {
                     sh '''
                         az account set --subscription ${SUB_ID}
                         echo "Configured for Subscription: ${SUB_ID}"
+                    '''
+                    sh '''
+                        docker run --rm -v ${WORKSPACE}:/apps \
+                        thogue12/security-scanner:v2 \
+                        bash -c "tfsec . && checkov -f tfplan.json && trivy conf tfplan.json"
                     '''
                 }
             }
