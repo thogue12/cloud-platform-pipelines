@@ -107,16 +107,13 @@ pipeline {
         steps {
             // Clean the workspace first to ensure no old state files are lying around
             cleanWs() 
-            
+
             git branch: 'main', 
                 url: 'https://github.com/thogue12/cloud-infrastructure.git'
     }
 }
         stage('Get info') {
             steps {
-                withEnv([
-                    "TF_VAR_storage_account_name="
-                ])
                 script {
                     def subRaw = params.SELECTED_SUBSCRIPTION ?: ""
                     env.SUB_ID = subRaw.contains("(") ? 
