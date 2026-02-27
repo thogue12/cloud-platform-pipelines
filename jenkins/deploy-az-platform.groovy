@@ -168,64 +168,59 @@ pipeline {
         }
 
           stage('terraform plan & security scan') {
-            steps {
-                
-                dir('pipeline-repo') {
-                    git branch: 'main', 
-                        url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
-                }
-
-               
-                sh 'docker build -t security-scanner:local ./pipeline-repo/Docker-Images/security-scanner'
-
-                withEnv([
-                    "TF_VAR_client_name=${params.client_name}",
-                    "TF_VAR_environment=${params.ENVIRONMENT}",
-                    "TF_VAR_project_name=${params.project_name}",
-                    "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
-                    "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
-                    "TF_VAR_location=${params.location}",
-                    "TF_VAR_azure_subscription_id=${env.SUB_ID}"
-                ]) { 
-                    withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                      
-                        sh """
-                            export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
-                            export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
-                            export ARM_TENANT_ID="\$AZURE_TENANT_ID"
-                            export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
-
-                            ${TF_PATH} plan -out=tfplan
-                            ${TF_PATH} show -json tfplan > tfplan.json
-                        """
-
-                        sh '''
-                            echo "--- Preparing Scan Script ---"
-                            # Create the script file
-                            # Ensure EOF is at the start of the line with NO spaces before it
-                            cat <<EOF > scan.sh
-                        #!/bin/sh
-                        echo "--- Running tfsec ---"
-                        tfsec .
-                        echo "--- Running checkov ---"
-                        checkov -f tfplan.json
-                        echo "--- Running trivy ---"
-                        trivy config tfplan.json
-                        EOF
-                        
-                            chmod +x scan.sh
-                        
-                            echo "--- Starting Security Scan ---"
-                            docker run --rm \
-                                -v "$(pwd):/apps" \
-                                --workdir /apps \
-                                security-scanner:local \
-                                ./scan.sh
-                        '''
-                    } 
-                } 
-            }
+    steps {
+        dir('pipeline-repo') {
+            git branch: 'main', 
+                url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
         }
+
+        sh 'docker build -t security-scanner:local ./pipeline-repo/Docker-Images/security-scanner'
+
+        withEnv([
+            "TF_VAR_client_name=${params.client_name}",
+            "TF_VAR_environment=${params.ENVIRONMENT}",
+            "TF_VAR_project_name=${params.project_name}",
+            "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
+            "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
+            "TF_VAR_location=${params.location}",
+            "TF_VAR_azure_subscription_id=${env.SUB_ID}"
+        ]) { 
+            withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                sh """
+                    export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
+                    export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
+                    export ARM_TENANT_ID="\$AZURE_TENANT_ID"
+                    export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
+
+                    ${TF_PATH} plan -out=tfplan
+                    ${TF_PATH} show -json tfplan > tfplan.json
+                """
+
+                sh '''
+                    echo "--- Preparing Scan Script ---"
+                    cat <<EOF > scan.sh
+#!/bin/sh
+echo "--- Running tfsec ---"
+tfsec .
+echo "--- Running checkov ---"
+checkov -f tfplan.json
+echo "--- Running trivy ---"
+trivy config tfplan.json
+EOF
+                    
+                    chmod +x scan.sh
+                
+                    echo "--- Starting Security Scan ---"
+                    docker run --rm \
+                        -v "$(pwd):/apps" \
+                        --workdir /apps \
+                        security-scanner:local \
+                        ./scan.sh
+                '''
+            } 
+        } 
+    }
+}
         // stage('terraform apply') {
         //     steps {
         //         withEnv(["TF_VAR_client_name=${params.client_name}",
