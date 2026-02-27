@@ -179,36 +179,37 @@ pipeline {
                         "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
                         "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
                         "TF_VAR_location=${params.location}",
-                        "TF_VAR_azure_subscription_id=${env.SUB_ID}",
-
+                        "TF_VAR_azure_subscription_id=${env.SUB_ID}"
                 ]) { 
                     withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                        // Note the \$ to keep these as shell variables, not Groovy ones
                         sh """
+                            export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
+                            export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
+                            export ARM_TENANT_ID="\$AZURE_TENANT_ID"
+                            export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
         
-                            export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
-                            export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-                            export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-                            export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-
-                           ${TF_PATH} plan -out=tfplan
-                           ${TF_PATH} show -json tfplan > tfplan.json
-                           
+                            ${TF_PATH} plan -out=tfplan
+                            ${TF_PATH} show -json tfplan > tfplan.json
                         """
-
+        
                         dir('pipeline-repo/Docker-Images/security-scanner') {
                             sh 'docker build -t security-scanner:local .'
                         }
-
+        
+                        // Added --workdir and /bin/sh to solve the binary execution error
                         sh '''
                             echo "--- Starting Security Scan ---"
-                            docker run --rm -v "$(pwd):/apps" \
+                            docker run --rm \
+                            -v "$(pwd):/apps" \
+                            --workdir /apps \
                             security-scanner:local \
-                            bash -c "tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
+                            /bin/sh -c "tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
                         '''
                     } 
                 } 
-            }
-        }
+    }
+}
 
         // stage('terraform apply') {
         //     steps {
