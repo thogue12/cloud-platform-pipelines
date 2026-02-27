@@ -197,16 +197,14 @@ pipeline {
                 """
 
                 sh '''
-                    echo "--- Preparing Scan Script ---"
-                    cat <<EOF > scan.sh
-#!/bin/sh
-echo "--- Running tfsec ---"
-tfsec .
-echo "--- Running checkov ---"
-checkov -f tfplan.json
-echo "--- Running trivy ---"
-trivy config tfplan.json
-EOF
+                    echo "--- Creating Scan Script ---"
+                    echo "#!/bin/sh" > scan.sh
+                    echo "echo '--- Running tfsec ---'" >> scan.sh
+                    echo "tfsec ." >> scan.sh
+                    echo "echo '--- Running checkov ---'" >> scan.sh
+                    echo "checkov -f tfplan.json" >> scan.sh
+                    echo "echo '--- Running trivy ---'" >> scan.sh
+                    echo "trivy config tfplan.json" >> scan.sh
                     
                     chmod +x scan.sh
                 
