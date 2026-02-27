@@ -103,17 +103,15 @@ pipeline {
         CLIENT_LOWER = "${params.client_name.toLowerCase().replaceAll(' ', '')}"
     }
 
-    stages {
-        stage('Checkout Infrastructure repo'){
-            steps {
-                checkout([$class: 'GetSCM',
-                branch: [['name': 'main']],
-                userRemoteConfigs: [[
-                    url:
-                ]]
-                ])
-            }
-        }
+    stage('Checkout Infrastructure repo') {
+        steps {
+            // Clean the workspace first to ensure no old state files are lying around
+            cleanWs() 
+            
+            git branch: 'main', 
+                url: 'https://github.com/thogue12/cloud-infrastructure.git'
+    }
+}
         stage('Get info') {
             steps {
                 withEnv([
