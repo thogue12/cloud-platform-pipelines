@@ -201,15 +201,20 @@ pipeline {
 
                         sh '''
                             echo "--- Preparing Scan Script ---"
-                                # Write the commands into a file
-                                cat <<EOF > scan.sh
-                            #!/bin/sh
-                            tfsec .
-                            checkov -f tfplan.json
-                            trivy config tfplan.json
-                            EOF
+                            # Create the script file
+                            # Ensure EOF is at the start of the line with NO spaces before it
+                            cat <<EOF > scan.sh
+                        #!/bin/sh
+                        echo "--- Running tfsec ---"
+                        tfsec .
+                        echo "--- Running checkov ---"
+                        checkov -f tfplan.json
+                        echo "--- Running trivy ---"
+                        trivy config tfplan.json
+                        EOF
+                        
                             chmod +x scan.sh
-
+                        
                             echo "--- Starting Security Scan ---"
                             docker run --rm \
                                 -v "$(pwd):/apps" \
