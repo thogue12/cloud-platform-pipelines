@@ -188,15 +188,15 @@ pipeline {
                             export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
                             export ARM_TENANT_ID="\$AZURE_TENANT_ID"
                             export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
-        
+
                             ${TF_PATH} plan -out=tfplan
                             ${TF_PATH} show -json tfplan > tfplan.json
                         """
-        
-                        dir('pipeline-repo/Docker-Images/security-scanner') {
+
+                        dir('cloud-platform-pipelines/Docker-Images/security-scanner') {
                             sh 'docker build -t security-scanner:local .'
                         }
-        
+
                         // Added --workdir and /bin/sh to solve the binary execution error
                         sh '''
                             echo "--- Starting Security Scan ---"
