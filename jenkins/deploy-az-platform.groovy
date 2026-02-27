@@ -182,7 +182,7 @@ pipeline {
                         "TF_VAR_azure_subscription_id=${env.SUB_ID}"
                 ]) { 
                     withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                        // Note the \$ to keep these as shell variables, not Groovy ones
+        
                         sh """
                             export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
                             export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
@@ -193,7 +193,7 @@ pipeline {
                             ${TF_PATH} show -json tfplan > tfplan.json
                         """
 
-                        dir('cloud-platform-pipelines/Docker-Images/security-scanner') {
+                        dir('pipeline-repo/Docker-Images/security-scanner') {
                             sh 'docker build -t security-scanner:local .'
                         }
 
