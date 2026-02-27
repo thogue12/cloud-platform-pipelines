@@ -119,6 +119,15 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZ_CREDS')]) {
                     sh '''#!/bin/bash
+                        # 1. Ensure the Blob Container exists for this client
+                        echo "Checking if container ${CLIENT_LOWER} exists..."
+                        az storage container create \
+                            --name "${CLIENT_LOWER}" \
+                            --account-name "${storage_account}" \
+                            --auth-mode login \
+                            --subscription "${SUB_ID}" || echo "Container might already exist."
+                     '''
+                    sh '''#!/bin/bash
                             ${TF_PATH} init -reconfigure \
                             -backend-config="storage_account_name=${storage_account}" \
                             -backend-config="container_name=${CLIENT_LOWER}" \
