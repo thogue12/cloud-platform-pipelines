@@ -176,7 +176,7 @@ pipeline {
                 }
 
                
-                sh 'docker build -t security-scanner:local ./pipeline-repo/Docker-Images/security-scanner'
+                sh 'docker build -t security-scanner:local . Docker-Images/security-scanner'
 
                 withEnv([
                     "TF_VAR_client_name=${params.client_name}",
