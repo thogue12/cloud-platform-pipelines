@@ -104,8 +104,21 @@ pipeline {
     }
 
     stages {
+        stage('Checkout Infrastructure repo'){
+            steps {
+                checkout([$class: 'GetSCM',
+                branch: [['name': 'main']],
+                userRemoteConfigs: [[
+                    url:
+                ]]
+                ])
+            }
+        }
         stage('Get info') {
             steps {
+                withEnv([
+                    "TF_VAR_storage_account_name="
+                ])
                 script {
                     def subRaw = params.SELECTED_SUBSCRIPTION ?: ""
                     env.SUB_ID = subRaw.contains("(") ? 
@@ -122,21 +135,7 @@ pipeline {
                 }
             }
         }
-        stage('Docker Diagnostic Test') {
-            steps {
-               
-                sh '''
-                    echo "--- Checking Docker Version and Source ---"
-                    which docker
-                    docker version
-                '''
 
-                dir('Docker-Images/security-scanner') {
-                    sh 'docker build -t security-scanner:local .'
-                }
-                sh 'docker images | grep security-scanner'
-    } 
-} 
 
         stage('terraform init') {
             steps {
@@ -155,60 +154,7 @@ pipeline {
                 }
             }
         }
-
-        stage('terraform fmt') {
-            steps { 
-                
-                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                 sh '''
-                     export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
-                     export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-                     export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-                     export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-                     terraform fmt
-                     
-                 '''
-                    
-                } 
-            }
-        }
-
-        stage('terraform plan & security scan') {
-            steps {
-                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                    sh '''
-                        export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
-                        export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-                        export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-                        export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-                        terraform plan -out=tfplan
-                        terraform show -json tfplan > tfplan.json
-                    '''
-                        // pull security-scanner image from dockerhub
-                    sh '''
-                        docker run --rm -v ${WORKSPACE}:/apps \
-                        thogue12/security-scanner:v2 \
-                        bash -c "tfsec . && checkov -f tfplan.json && trivy conf tfplan.json"
-                      '''
-                }
-            }
-        }
-
-        stage('terraform apply') {
-            steps {
-                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                    sh '''
-                        export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
-                        export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-                        export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-                        export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-                        terraform apply -auto-approve tfplan
-                    '''
-                }
-            }
-        }
-
-        stage('Create clients .tfvars file'){
+         stage('Create clients .tfvars file'){
             steps{
                 script {
                     def targetDir = "Environments/${params.ENVIRONMENT}/clients"
@@ -229,5 +175,77 @@ pipeline {
                 }
             }
         }
+
+        stage('terraform format') {
+            steps { 
+                
+                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                 sh
+                     'terraform fmt'
+                     
+       
+                    
+                } 
+            }
+        }
+
+        stage('terraform plan & security scan') {
+            steps {
+                //Map the terraform variables to send to the terraform file
+                withEnv(["TF_VAR_client_name=${params.client_name}",
+                        "TF_VAR_environment=${params.ENVIRONMENT}",
+                        "TF_VAR_project_name=${params.project_name}",
+                        "TF_VAR_vnet_address=${params.vnet_address}",
+                        "TF_VAR_subnet_address=${params.subnet_address}",
+                        "TF_VAR_location=${params.location}"
+                ]) { 
+                    withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                        sh '''
+                            export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
+                            export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+                            export ARM_TENANT_ID="${AZURE_TENANT_ID}"
+                            export ARM_SUBSCRIPTION_ID="${SUB_ID}"
+
+                            terraform plan -out=tfplan
+                            terraform show -json tfplan > tfplan.json
+                        '''
+
+                        dir('Docker-Images/security-scanner') {
+                            sh 'docker build -t security-scanner:local .'
+                        }
+
+                        sh '''
+                            echo "--- Starting Security Scan ---"
+                            docker run --rm -v "$(pwd):/apps" \
+                            security-scanner:local \
+                            bash -c "tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
+                        '''
+            }
+        }
     }
 }
+
+        stage('terraform apply') {
+            steps {
+                 withEnv(["TF_VAR_client_name=${params.client_name}",
+                        "TF_VAR_environment=${params.ENVIRONMENT}",
+                        "TF_VAR_project_name=${params.project_name}",
+                        "TF_VAR_vnet_address=${params.vnet_address}",
+                        "TF_VAR_subnet_address=${params.subnet_address}",
+                        "TF_VAR_location=${params.location}"
+                ]) {
+                
+                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                    sh '''
+                        export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
+                        export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+                        export ARM_TENANT_ID="${AZURE_TENANT_ID}"
+                        export ARM_SUBSCRIPTION_ID="${SUB_ID}"
+                        terraform apply -auto-approve tfplan
+                    '''
+                }
+            }
+        }
+    }
+}}
+
