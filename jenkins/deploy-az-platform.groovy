@@ -201,6 +201,7 @@ pipeline {
 
                         // 4. Run the scan (Mounting the root so it sees tfplan.json)
                         sh '''
+                            COMMAND_STRING="tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
                             echo "--- Starting Security Scan ---"
                             docker run --rm \
                             -v "$(pwd):/apps" \
