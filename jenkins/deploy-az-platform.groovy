@@ -1,8 +1,6 @@
 import groovy.json.JsonSlurper
 @Library('shared-library') _
 
-
-
 properties([
     parameters([
         string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Target environment'),
@@ -11,7 +9,6 @@ properties([
         string(name: 'location', defaultValue: 'eastus'),
         string(name: 'vnet_address', description: 'Input the virtual networks CIDR'),
         string(name: 'subnet_address',  description: 'Input the subnet CIDR'),
-        
         
         [
             $class: 'ChoiceParameter', 
@@ -24,7 +21,6 @@ properties([
                 script: [
                     sandbox: false, 
                     script: '''
-                        
                         try {
                             def cmd = ['/bin/bash', '-c', '/usr/bin/az account list --query "[].{name:name, id:id}" --output json']
                             def process = cmd.execute()
@@ -40,7 +36,6 @@ properties([
             ]
         ],
 
-        
         [
             $class: 'CascadeChoiceParameter', 
             name: 'storage_account',
@@ -57,35 +52,24 @@ properties([
                     sandbox: false,
                     script: '''
                         try {
-                             // 1. Check if the parent parameter is empty or null
                              if (SELECTED_SUBSCRIPTION == null || SELECTED_SUBSCRIPTION.trim().isEmpty()) {
                                  return ["Select a Subscription first..."]
                              }
-            
-                             // 2. Extract Sub ID
                              def subId = SELECTED_SUBSCRIPTION.contains("(") ? 
                                          SELECTED_SUBSCRIPTION.substring(SELECTED_SUBSCRIPTION.lastIndexOf("(") + 1, SELECTED_SUBSCRIPTION.lastIndexOf(")")) : 
                                          SELECTED_SUBSCRIPTION
-            
-                             // 3. Execute Command (Capturing stderr with 2>&1)
                              def command = "/usr/bin/az account set --subscription ${subId} && /usr/bin/az storage account list --query '[].name' --output json 2>&1"
                              def proc = ["/bin/bash", "-c", command].execute()
                              def output = proc.text.trim()
                              proc.waitFor()
-            
-                             // 4. Handle Empty Output or Errors
                              if (proc.exitValue() != 0) {
-                                 return ["AZ CLI Error: " + output.take(50)] // Show first 50 chars of error
+                                 return ["AZ CLI Error: " + output.take(50)]
                              }
-            
                              if (!output || output == "[]") {
                                  return ["ERROR: No storage accounts found in this sub"]
                              }
-            
-                             // 5. Parse and Return
                              def data = new groovy.json.JsonSlurper().parseText(output)
                              return data
-                             
                          } catch (Exception e) {
                              return ["GROOVY ERROR: " + e.getMessage()]
                          }
@@ -100,18 +84,20 @@ pipeline {
     agent any
     
     environment {
+        
         CLIENT_LOWER = "${params.client_name.toLowerCase().replaceAll(' ', '')}"
     }
 
-    stage('Checkout Infrastructure repo') {
-        steps {
-            // Clean the workspace first to ensure no old state files are lying around
-            cleanWs() 
+    stages 
+        
+        stage('Checkout Infrastructure repo') {
+            steps {
+                cleanWs() 
+                git branch: 'main', 
+                    url: 'https://github.com/thogue12/cloud-infrastructure.git'
+            }
+        }
 
-            git branch: 'main', 
-                url: 'https://github.com/thogue12/cloud-infrastructure.git'
-    }
-}
         stage('Get info') {
             steps {
                 script {
@@ -126,11 +112,9 @@ pipeline {
                         az account set --subscription ${SUB_ID}
                         echo "Configured for Subscription: ${SUB_ID}"
                     '''
-                    
                 }
             }
         }
-
 
         stage('terraform init') {
             steps {
@@ -149,7 +133,8 @@ pipeline {
                 }
             }
         }
-         stage('Create clients .tfvars file'){
+
+        stage('Create clients .tfvars file'){
             steps{
                 script {
                     def targetDir = "Environments/${params.ENVIRONMENT}/clients"
@@ -166,27 +151,18 @@ pipeline {
                     """.stripIndent()
 
                     writeFile file: "${targetDir}/${params.client_name}.tfvars", text: tfvarsContent
-                    echo "Successfully created .tfvars file in ${targetDir}"
                 }
             }
         }
 
         stage('terraform format') {
             steps { 
-                
-                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                 sh
-                     'terraform fmt'
-                     
-       
-                    
-                } 
+                sh 'terraform fmt'
             }
         }
 
         stage('terraform plan & security scan') {
             steps {
-                //Map the terraform variables to send to the terraform file
                 withEnv(["TF_VAR_client_name=${params.client_name}",
                         "TF_VAR_environment=${params.ENVIRONMENT}",
                         "TF_VAR_project_name=${params.project_name}",
@@ -215,32 +191,31 @@ pipeline {
                             security-scanner:local \
                             bash -c "tfsec . && checkov -f tfplan.json && trivy config tfplan.json"
                         '''
+                    } 
+                } 
             }
         }
-    }
-}
 
         stage('terraform apply') {
             steps {
-                 withEnv(["TF_VAR_client_name=${params.client_name}",
+                withEnv(["TF_VAR_client_name=${params.client_name}",
                         "TF_VAR_environment=${params.ENVIRONMENT}",
                         "TF_VAR_project_name=${params.project_name}",
                         "TF_VAR_vnet_address=${params.vnet_address}",
                         "TF_VAR_subnet_address=${params.subnet_address}",
                         "TF_VAR_location=${params.location}"
                 ]) {
-                
-                withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                    sh '''
-                        export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
-                        export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-                        export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-                        export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-                        terraform apply -auto-approve tfplan
-                    '''
-                }
+                    withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                        sh '''
+                            export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
+                            export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+                            export ARM_TENANT_ID="${AZURE_TENANT_ID}"
+                            export ARM_SUBSCRIPTION_ID="${SUB_ID}"
+                            terraform apply -auto-approve tfplan
+                        '''
+                    } /
+                } /
             }
         }
-    }
-}
-
+    } 
+} 
