@@ -173,9 +173,11 @@ pipeline {
                 withEnv(["TF_VAR_client_name=${params.client_name}",
                         "TF_VAR_environment=${params.ENVIRONMENT}",
                         "TF_VAR_project_name=${params.project_name}",
-                        "TF_VAR_vnet_address=${params.vnet_address}",
-                        "TF_VAR_subnet_address=${params.subnet_address}",
-                        "TF_VAR_location=${params.location}"
+                        "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
+                        "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
+                        "TF_VAR_location=${params.location}",
+                        "TF_VAR_azure_subscription_id=${env.SUB_ID}",
+
                 ]) { 
                     withCredentials([azureServicePrincipal('AZ_CREDS')]) {
                         sh '''
