@@ -117,16 +117,15 @@ pipeline {
         stage('terraform init') {
             steps {
                 withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                    sh '''
-                        terraform init \
-                            -backend-config="storage_account_name=${params.storage_account}" \
+                    sh '''#!/bin/bash
+                        terraform init -reconfigure \
+                            -backend-config="storage_account_name=${storage_account}" \
                             -backend-config="container_name=${CLIENT_LOWER}" \
-                            -backend-config="key=${CLIENT_LOWER}-${params.ENVIRONMENT}.terraform.tfstate" \
+                            -backend-config="key=${CLIENT_LOWER}-${ENVIRONMENT}.terraform.tfstate" \
                             -backend-config="subscription_id=${SUB_ID}" \
                             -backend-config="client_id=${AZURE_CLIENT_ID}" \
                             -backend-config="client_secret=${AZURE_CLIENT_SECRET}" \
-                            -backend-config="tenant_id=${AZURE_TENANT_ID}" \
-                            -reconfigure
+                            -backend-config="tenant_id=${AZURE_TENANT_ID}"
                     '''
                 }
             }
