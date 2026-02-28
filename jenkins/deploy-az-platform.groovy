@@ -143,7 +143,10 @@ pipeline {
         stage('Create clients .tfvars file'){
             steps{
                 script {
-                    def targetDir = "Environments/${params.ENVIRONMENT}/clients"
+                    def targetDir = "Azure/Environments/${params.ENVIRONMENT}/clients"
+                    def fileName  = "${params.client_name}.tfvars"
+                    def fullPath  = "${tagetDir}/${fileName}"
+
                     sh "mkdir -p ${targetDir}"
                 
                     def tfvarsContent = """
@@ -156,7 +159,13 @@ pipeline {
                     storage_account = "${params.storage_account}"
                     """.stripIndent()
 
-                    writeFile file: "${targetDir}/${params.client_name}.tfvars", text: tfvarsContent
+                    writeFile file: fullPath text: tfvarsContent
+
+                    pushToGithub(
+                        file:  fullPath
+                        creds: 'GIT-PAT'
+                        repo:  'github.com/thogue12/cloud-infrastructure.git'
+                    )
                 }
             }
         }
@@ -167,60 +176,60 @@ pipeline {
             }
         }
 
-          stage('terraform plan & security scan') {
-    steps {
-        dir('pipeline-repo') {
-            git branch: 'main', 
-                url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
+        stage('terraform plan & security scan') {
+            steps {
+                dir('pipeline-repo') {
+                    git branch: 'main', 
+                        url: 'https://github.com/thogue12/cloud-platform-pipelines.git'
+                }
+        
+                sh 'docker build -t security-scanner:local ./pipeline-repo/Docker-Images/security-scanner'
+        
+                withEnv([
+                    "TF_VAR_client_name=${params.client_name}",
+                    "TF_VAR_environment=${params.ENVIRONMENT}",
+                    "TF_VAR_project_name=${params.project_name}",
+                    "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
+                    "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
+                    "TF_VAR_location=${params.location}",
+                    "TF_VAR_azure_subscription_id=${env.SUB_ID}"
+                ]) { 
+                    withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                        sh """
+                            export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
+                            export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
+                            export ARM_TENANT_ID="\$AZURE_TENANT_ID"
+                            export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
+        
+                            ${TF_PATH} plan -out=tfplan
+                            ${TF_PATH} show -json tfplan > tfplan.json
+                        """
+        
+                        sh '''
+                            echo "--- Creating Scan Script ---"
+                            echo "#!/bin/sh" > scan.sh
+                            echo "echo '--- Running tfsec ---'" >> scan.sh
+                            echo "tfsec ." >> scan.sh
+        
+                            echo "echo '--- Running checkov ---'" >> scan.sh
+                            echo "checkov -f tfplan.json" >> scan.sh
+                            
+                            echo "echo '--- Running trivy ---'" >> scan.sh
+                            echo "trivy config tfplan.json" >> scan.sh
+                            
+                            chmod +x scan.sh
+                        
+                            echo "--- Starting Security Scan ---"
+                            docker run --rm \
+                                -v "$(pwd):/apps" \
+                                --workdir /apps \
+                                security-scanner:local \
+                                ./scan.sh
+                        '''
+                    } 
+                } 
+            }
         }
-
-        sh 'docker build -t security-scanner:local ./pipeline-repo/Docker-Images/security-scanner'
-
-        withEnv([
-            "TF_VAR_client_name=${params.client_name}",
-            "TF_VAR_environment=${params.ENVIRONMENT}",
-            "TF_VAR_project_name=${params.project_name}",
-            "TF_VAR_vnet_address=[\"${params.vnet_address}\"]",
-            "TF_VAR_subnet_address=[\"${params.subnet_address}\"]",
-            "TF_VAR_location=${params.location}",
-            "TF_VAR_azure_subscription_id=${env.SUB_ID}"
-        ]) { 
-            withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-                sh """
-                    export ARM_CLIENT_ID="\$AZURE_CLIENT_ID"
-                    export ARM_CLIENT_SECRET="\$AZURE_CLIENT_SECRET"
-                    export ARM_TENANT_ID="\$AZURE_TENANT_ID"
-                    export ARM_SUBSCRIPTION_ID="\$AZURE_SUBSCRIPTION_ID"
-
-                    ${TF_PATH} plan -out=tfplan
-                    ${TF_PATH} show -json tfplan > tfplan.json
-                """
-
-                sh '''
-                    echo "--- Creating Scan Script ---"
-                    echo "#!/bin/sh" > scan.sh
-                    echo "echo '--- Running tfsec ---'" >> scan.sh
-                    echo "tfsec ." >> scan.sh
-
-                    echo "echo '--- Running checkov ---'" >> scan.sh
-                    echo "checkov -f tfplan.json" >> scan.sh
-                    
-                    echo "echo '--- Running trivy ---'" >> scan.sh
-                    echo "trivy config tfplan.json" >> scan.sh
-                    
-                    chmod +x scan.sh
-                
-                    echo "--- Starting Security Scan ---"
-                    docker run --rm \
-                        -v "$(pwd):/apps" \
-                        --workdir /apps \
-                        security-scanner:local \
-                        ./scan.sh
-                '''
-            } 
-        } 
-    }
-}
         // stage('terraform apply') {
         //     steps {
         //         withEnv(["TF_VAR_client_name=${params.client_name}",
