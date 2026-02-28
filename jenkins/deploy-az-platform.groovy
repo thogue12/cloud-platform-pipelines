@@ -163,7 +163,7 @@ pipeline {
 
                     pushToGithub(
                         file:  fullPath
-                        creds: 'GIT-PAT'
+                        credentialsId: 'GIT-PAT'
                         repo:  'github.com/thogue12/cloud-infrastructure.git'
                     )
                 }
