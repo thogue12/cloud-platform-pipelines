@@ -145,7 +145,7 @@ pipeline {
                 script {
                     def targetDir = "Azure/Environments/${params.ENVIRONMENT}/clients"
                     def fileName  = "${params.client_name}.tfvars"
-                    def fullPath  = "${tagetDir}/${fileName}"
+                    def fullPath  = "${targetDir}/${fileName}"
 
                     sh "mkdir -p ${targetDir}"
                 
