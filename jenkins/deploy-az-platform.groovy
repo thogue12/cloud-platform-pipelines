@@ -3,7 +3,7 @@ import groovy.json.JsonSlurper
 
 properties([
     parameters([
-        string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Target environment'),
+        choice choices: ['dev', 'test', 'pro'], description: 'Select the envirnment', name: 'ENVIRONMENT',
         string(name: 'project_name', defaultValue: 'global-admin', description: 'project name'),
         string(name: 'client_name', description: 'name of the client'),
         string(name: 'location', defaultValue: 'eastus'),
@@ -231,14 +231,7 @@ pipeline {
             }
         }
         // stage('terraform apply') {
-        //     steps {
-        //         withEnv(["TF_VAR_client_name=${params.client_name}",
-        //                 "TF_VAR_environment=${params.ENVIRONMENT}",
-        //                 "TF_VAR_project_name=${params.project_name}",
-        //                 "TF_VAR_vnet_address=${params.vnet_address}",
-        //                 "TF_VAR_subnet_address=${params.subnet_address}",
-        //                 "TF_VAR_location=${params.location}"
-        //         ]) {
+        //     steps {      
         //             withCredentials([azureServicePrincipal('AZ_CREDS')]) {
         //                 sh '''
         //                     export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
