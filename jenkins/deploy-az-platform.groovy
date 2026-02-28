@@ -159,7 +159,7 @@ pipeline {
                     storage_account = "${params.storage_account}"
                     """.stripIndent()
 
-                    writeFile file: fullPath text: tfvarsContent
+                    writeFile file: fullPath, text: tfvarsContent
 
                     pushToGithub(
                         file:  fullPath
