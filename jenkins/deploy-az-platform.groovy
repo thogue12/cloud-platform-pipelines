@@ -162,8 +162,8 @@ pipeline {
                     writeFile file: fullPath, text: tfvarsContent
 
                     pushToGithub(
-                        file:  fullPath
-                        credentialsId: 'GIT-PAT'
+                        file:  fullPath,
+                        creds: 'GIT-PAT',
                         repo:  'github.com/thogue12/cloud-infrastructure.git'
                     )
                 }
