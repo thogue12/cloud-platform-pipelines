@@ -240,7 +240,7 @@ pipeline {
                             export ARM_SUBSCRIPTION_ID="${SUB_ID}"
                             ${TF_PATH} apply -auto-approve tfplan
                         '''
-                    }
+                    
                 }
             }
         }
