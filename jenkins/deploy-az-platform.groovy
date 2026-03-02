@@ -205,27 +205,35 @@ pipeline {
                             ${TF_PATH} show -json tfplan > tfplan.json
                         """
         
-                        sh '''
-                            echo "--- Creating Scan Script ---"
-                            echo "#!/bin/sh" > scan.sh
-                            echo "echo '--- Running tfsec ---'" >> scan.sh
-                            echo "tflint ." >> scan.sh
-        
-                            echo "echo '--- Running checkov ---'" >> scan.sh
-                            echo "trivy config tfplan.json" >> scan.sh >> scan.sh
+                            sh '''
+                                echo "--- Preparing Security Scan Script ---"
 
-                            echo "echo '--- Running trivy ---'" >> scan.sh
-                            echo "checkov -f tfplan.json" >> scan.sh
-                            
-                            chmod +x scan.sh
-                        
-                            echo "--- Starting Security Scan ---"
-                            docker run --rm \
-                                -v "$(pwd):/apps" \
-                                --workdir /apps \
-                                security-scanner:local \
-                                ./scan.sh
-                        '''
+                                # This creates the entire file at once
+                                cat << 'EOF' > scan.sh
+                            #!/bin/sh
+                            # 1. TFLint (Using the new chdir syntax)
+                            echo "--- Running TFLint ---"
+                            tflint --chdir=.
+
+                            # 2. Trivy (Scanning the JSON plan)
+                            echo "--- Running Trivy ---"
+                            trivy config tfplan.json
+
+                            # 3. Checkov (Deep Policy Scan)
+                            echo "--- Running Checkov ---"
+                            # Added --quiet to hide the 26 passes and only show the 55 failures
+                            checkov -f tfplan.json --quiet
+                            EOF
+
+                                chmod +x scan.sh
+
+                                echo "--- Starting Security Scan ---"
+                                docker run --rm \
+                                    -v "$(pwd):/apps" \
+                                    --workdir /apps \
+                                    security-scanner:local \
+                                    ./scan.sh
+                            '''
                     } 
                 } 
             }
