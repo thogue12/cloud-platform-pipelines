@@ -230,19 +230,19 @@ pipeline {
                 } 
             }
         }
-        // stage('terraform apply') {
-        //     steps {      
-        //             withCredentials([azureServicePrincipal('AZ_CREDS')]) {
-        //                 sh '''
-        //                     export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
-        //                     export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-        //                     export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-        //                     export ARM_SUBSCRIPTION_ID="${SUB_ID}"
-        //                     ${TF_PATH} apply -auto-approve tfplan
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
+        stage('terraform apply') {
+            steps {      
+                    withCredentials([azureServicePrincipal('AZ_CREDS')]) {
+                        sh '''
+                            export ARM_CLIENT_ID="${AZURE_CLIENT_ID}"
+                            export ARM_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+                            export ARM_TENANT_ID="${AZURE_TENANT_ID}"
+                            export ARM_SUBSCRIPTION_ID="${SUB_ID}"
+                            ${TF_PATH} apply -auto-approve tfplan
+                        '''
+                    }
+                }
+            }
+        }
     } 
 }
