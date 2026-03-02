@@ -1,5 +1,7 @@
 # Use a specific version of Alpine for stability
 FROM alpine:3.23.3
+FROM aquasec/trivy:0.49.1 AS trivy_source
+FROM ghcr.io/terraform-linters/tflint:v0.50.1 AS tflint_source
 
 # Install System Dependencies 
 RUN apk add --no-cache \
@@ -8,7 +10,10 @@ RUN apk add --no-cache \
     bash \
     python3 \
     py3-pip \
-    jq
+    jq \
+    tar \
+    gzip \
+    git
 
 # Create a virtual env
 RUN python3 -m venv /opt/venv
@@ -19,7 +24,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
 
 #Install Trivy
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.49.1
+COPY --from=trivy_source /usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=tflint_source /usr/local/bin/tflint /usr/local/bin/tflint
 
 #Install Checkov
 RUN pip3 install --no-cache-dir --upgrade pip && \
@@ -32,4 +38,3 @@ WORKDIR /apps
 RUN tflint --version && trivy --version && checkov --version
 
 ENTRYPOINT ["/bin/bash"]
-
