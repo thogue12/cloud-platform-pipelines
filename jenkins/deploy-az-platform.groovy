@@ -208,7 +208,9 @@ pipeline {
                             sh '''
                                 echo "--- Starting the scanning process ---"
                                 echo "#!/bin/sh" > scan.sh
-                                echo "set -e" >> scan.sh  # <--- Master Switch: Stop on any error
+                                echo "set -e" >> scan.sh 
+                                docker run --rm -v "$(pwd):/apps" \
+
 
                                 echo "echo '--- Running TFLint ---'" >> scan.sh
                                 echo "tflint --chdir=." >> scan.sh
@@ -222,6 +224,12 @@ pipeline {
                                 echo "checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13" >> scan.sh
 
                                 chmod +x scan.sh
+                                echo "Launching the Security Container ---"
+                                docker run --rm \
+                                    -v "$(pwd):/apps" \
+                                    --workdir /apps \
+                                    security-scanner:local \
+                                    ./scan.sh
                             '''
                     } 
                 } 
