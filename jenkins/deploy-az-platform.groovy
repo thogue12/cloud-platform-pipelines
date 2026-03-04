@@ -154,8 +154,8 @@ pipeline {
                     environment     = "${params.ENVIRONMENT}"
                     project_name    = "${params.project_name}"
                     location        = "${params.location}"
-                    vnet_address    = "${params.vnet_address}"
-                    subnet_address  = "${params.subnet_address}"
+                    vnet_address    = ["${params.vnet_address}"]
+                    subnet_address  = ["${params.subnet_address}"]
                     storage_account = "${params.storage_account}"
                     """.stripIndent()
 
@@ -208,7 +208,7 @@ pipeline {
                         sh '''
                             echo "--- Starting the scanning process ---"
                             echo "--- Launching the Security Container ---"
-                            
+
                             docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local sh -c 'echo "--- Running TFLint ---" && tflint --chdir=. && echo "--- Running Trivy ---" && trivy config --exit-code 1 --severity CRITICAL tfplan.json && echo "--- Running Checkov ---" && checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13'
                         '''
 
