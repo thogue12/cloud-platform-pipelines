@@ -209,8 +209,6 @@ pipeline {
                                 echo "--- Starting the scanning process ---"
                                 echo "#!/bin/sh" > scan.sh
                                 echo "set -e" >> scan.sh 
-                                docker run --rm -v "$(pwd):/apps" \
-
 
                                 echo "echo '--- Running TFLint ---'" >> scan.sh
                                 echo "tflint --chdir=." >> scan.sh
