@@ -207,10 +207,21 @@ pipeline {
         
                         sh '''
                             echo "--- Starting the scanning process ---"
-                            echo "--- Launching the Security Container ---"
+                            echo "#!/bin/sh" > scan.sh
+                            echo "set -e" >> scan.sh 
+                            echo "echo '--- Running TFLint ---'" >> scan.sh
+                            echo "tflint --chdir=." >> scan.sh
+                            echo "echo '--- Running Trivy ---'" >> scan.sh
+                            echo "trivy config --exit-code 1 --severity CRITICAL tfplan.json" >> scan.sh
+                            echo "echo '--- Running Checkov ---'" >> scan.sh
+                            echo "checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13" >> scan.sh
 
-                            docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local sh -c 'echo "--- Running TFLint ---" && tflint --chdir=. && echo "--- Running Trivy ---" && trivy config --exit-code 1 --severity CRITICAL tfplan.json && echo "--- Running Checkov ---" && checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13'
+                            chmod +x scan.sh
+
+                            echo "--- Launching the Security Container ---"
+                            docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local ./scan.sh
                         '''
+
 
 
                     } 
