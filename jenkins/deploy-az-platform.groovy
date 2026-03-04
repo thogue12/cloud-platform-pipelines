@@ -219,8 +219,9 @@ pipeline {
                             chmod +x scan.sh
 
                             echo "--- Launching the Security Container ---"
-                            docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local sh scan.sh
+                            docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local ./scan.sh
                         '''
+
 
                     } 
                 } 
