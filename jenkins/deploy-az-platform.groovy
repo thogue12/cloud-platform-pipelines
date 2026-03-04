@@ -4,7 +4,7 @@ import groovy.json.JsonSlurper
 properties([
     parameters([
         choice(name: 'ENVIRONMENT', choices: ['dev', 'test', 'prod'], description: 'Target Environment'),
-        string(name: 'project_name', defaultValue: 'global-admin', description: 'project name'),
+        string(name: 'project_name', description: 'project name'),
         string(name: 'client_name', description: 'name of the client'),
         string(name: 'location', defaultValue: 'eastus'),
         string(name: 'vnet_address', description: 'Input the virtual networks CIDR'),
