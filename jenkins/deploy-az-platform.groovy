@@ -219,10 +219,10 @@ pipeline {
                             echo "echo '--- Running Checkov ---'" >> scan.sh
                             echo "checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13 || EXIT_CODE=1" >> scan.sh
                             echo "" >> scan.sh
-                            echo "exit \$EXIT_CODE" >> scan.sh
-                            
+                            echo "exit $EXIT_CODE" >> scan.sh
+
                             chmod +x scan.sh
-                            
+
                             echo "--- Launching the Security Container ---"
                             docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local ./scan.sh
                         '''
