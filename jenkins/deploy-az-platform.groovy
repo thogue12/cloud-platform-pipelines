@@ -205,12 +205,13 @@ pipeline {
                             ${TF_PATH} show -json tfplan > tfplan.json
                         """
         
-                            sh '''
-                                echo "--- Starting the scanning process ---"
-                                echo "--- Launching the Security Container ---"
+                        sh '''
+                            echo "--- Starting the scanning process ---"
+                            echo "--- Launching the Security Container ---"
+                            
+                            docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local sh -c 'echo "--- Running TFLint ---" && tflint --chdir=. && echo "--- Running Trivy ---" && trivy config --exit-code 1 --severity CRITICAL tfplan.json && echo "--- Running Checkov ---" && checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13'
+                        '''
 
-                                docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local sh -c "echo '--- Running TFLint ---' && tflint --chdir=. && echo '--- Running Trivy ---' && trivy config --exit-code 1 --severity CRITICAL tfplan.json && echo '--- Running Checkov ---' && checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13"
-                            '''
 
                     } 
                 } 
