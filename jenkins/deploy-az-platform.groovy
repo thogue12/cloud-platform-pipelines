@@ -207,28 +207,27 @@ pipeline {
         
                             sh '''
                                 echo "--- Starting the scanning process ---"
-                                echo "#!/bin/sh" > scan.sh
-                                echo "set -e" >> scan.sh 
 
-                                echo "echo '--- Running TFLint ---'" >> scan.sh
-                                echo "tflint --chdir=." >> scan.sh
-
-                                echo "echo '--- Running Trivy ---'" >> scan.sh
-                                # Force an exit code 1 if CRITICALs are found
-                                echo "trivy config --exit-code 1 --severity CRITICAL tfplan.json" >> scan.sh
-
-                                echo "echo '--- Running Checkov ---'" >> scan.sh
-                                # Skip the buggy check and use quiet mode
-                                echo "checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13" >> scan.sh
+                                cat > scan.sh << 'EOF'
+                                #!/bin/sh
+                                set -e
+                                
+                                echo '--- Running TFLint ---'
+                                tflint --chdir=.
+                                
+                                echo '--- Running Trivy ---'
+                                trivy config --exit-code 1 --severity CRITICAL tfplan.json
+                                
+                                echo '--- Running Checkov ---'
+                                checkov -f tfplan.json --quiet --skip-check CKV_AZURE_13
+                                EOF
 
                                 chmod +x scan.sh
-                                echo "Launching the Security Container ---"
-                                docker run --rm \
-                                    -v "$(pwd):/apps" \
-                                    --workdir /apps \
-                                    security-scanner:local \
-                                    ./scan.sh
+
+                                echo "--- Launching the Security Container ---"
+                                docker run --rm -v "$(pwd):/apps" --workdir /apps security-scanner:local ./scan.sh
                             '''
+
                     } 
                 } 
             }
